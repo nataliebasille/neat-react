@@ -3,8 +3,9 @@ import { random, RandomNumberGenerator, range } from "../../utilities";
 import { Population, PopulationSpecies } from "./types";
 import { weighted } from "../../utilities/random/weighted";
 import { createSpecies } from "../species/createSpecies";
-import { distance } from "../species";
+import { distance, GenomeWithFitness } from "../species";
 import { addMember } from "../species/addMember";
+import { evaluateSpecies } from "../species/evaluateSpecies";
 
 type NextGenerationOptions = {
   fitnessProportion?: number;
@@ -26,59 +27,21 @@ export function nextGeneration(
     fitness: fitnessFunction,
   }: NextGenerationOptions
 ): Population {
-  const speciesHealth: {
-    species: PopulationSpecies;
-    totalAdjustedFitness: number;
-    membersWithFitness: {
-      genome: Genome;
-      fitness: number;
-      adjustedFitness: number;
-    }[];
-  }[] = population.species.map((species) => {
-    const membersWithFitness = species.members.map((genome) => {
-      const fitness = fitnessFunction(genome);
-      return {
-        genome,
-        fitness,
-        adjustedFitness: fitness / species.members.length,
-      };
-    });
-    return {
-      species,
-      totalAdjustedFitness: membersWithFitness.reduce(
-        (acc, { adjustedFitness }) => acc + adjustedFitness,
-        0
-      ),
-      membersWithFitness,
-    };
-  });
-
-  let survivingSpecies = speciesHealth
-    .map(({ species, membersWithFitness, totalAdjustedFitness }) => {
-      const surviving = membersWithFitness
-        .sort((a, b) => b.fitness - a.fitness)
-        .slice(0, Math.ceil(membersWithFitness.length * fitnessProportion));
-
-      return { species, totalAdjustedFitness, surviving };
-    })
-    .filter((x) => x.surviving.length > 1);
-
-  const topFitness = survivingSpecies.reduce(
-    (acc, { totalAdjustedFitness }) => Math.max(acc, totalAdjustedFitness),
-    0
+  const speciesWithFitness = population.species.map((species) =>
+    evaluateSpecies(species, fitnessFunction)
   );
 
-  survivingSpecies = survivingSpecies
-    .map((item) => {
-      if (item.totalAdjustedFitness < topFitness) {
-        item.species = {
-          ...item.species,
-          staleness: item.species.staleness + 1,
-        };
-      }
-      return item;
+  let survivingSpecies = speciesWithFitness
+    .map(({ members, fitness, ...species }) => {
+      const surviving = members
+        .sort((a, b) => b.fitness - a.fitness)
+        .slice(0, Math.ceil(members.length * fitnessProportion));
+
+      return { species, totalAdjustedFitness: fitness, surviving };
     })
-    .filter((x) => x.species.staleness < maxStaleness);
+    .filter(
+      (x) => x.species.staleness < maxStaleness && x.surviving.length > 1
+    );
 
   const totalAdjustedFitnessInPopulation = survivingSpecies.reduce(
     (acc, { totalAdjustedFitness }) => acc + totalAdjustedFitness,
@@ -101,10 +64,7 @@ export function nextGeneration(
 
   const currentTotal =
     children.length +
-    survivingSpecies.reduce(
-      (acc, { species }) => acc + species.members.length,
-      0
-    );
+    survivingSpecies.reduce((acc, { surviving }) => acc + surviving.length, 0);
 
   for (let i = currentTotal; i < population.populationSize; i++) {
     const index = random.getInteger(rng, 0, survivingSpecies.length);
@@ -135,10 +95,7 @@ export function nextGeneration(
     },
     survivingSpecies.map(({ species, surviving }) => {
       return {
-        ...createSpecies(
-          surviving[0].genome,
-          surviving.map((x) => x.genome).slice(1)
-        ),
+        ...createSpecies(surviving[0], surviving.slice(1)),
         staleness: species.staleness,
       };
     })
@@ -154,11 +111,7 @@ export function nextGeneration(
 function breed(
   rng: RandomNumberGenerator,
   nextInnovationNumber: NextInnovationNumber,
-  surviving: {
-    genome: Genome;
-    fitness: number;
-    adjustedFitness: number;
-  }[]
+  surviving: GenomeWithFitness[]
 ) {
   const index = weighted(
     rng,
@@ -168,23 +121,17 @@ function breed(
   const subject = surviving[index];
 
   const child =
-    rng() < subject.genome.mutationRates.crossoverChange
+    rng() < subject.mutationRates.crossoverChange
       ? (() => {
           const randomIndex = random.getInteger(rng, 0, surviving.length);
           const partner = surviving[randomIndex];
           return crossover({
-            alpha:
-              subject.fitness > partner.fitness
-                ? subject.genome
-                : partner.genome,
-            beta:
-              subject.fitness > partner.fitness
-                ? partner.genome
-                : subject.genome,
+            alpha: subject.fitness > partner.fitness ? subject : partner,
+            beta: subject.fitness > partner.fitness ? partner : subject,
             rng,
           });
         })()
-      : subject.genome;
+      : subject;
 
   return mutate(child, { rng, nextInnovationNumber });
 }

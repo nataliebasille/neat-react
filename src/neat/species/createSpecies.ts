@@ -6,6 +6,7 @@ export function createSpecies(
   additionalMembers: Genome[] = []
 ): Species {
   return {
+    staleness: 0,
     prototype,
     members: [prototype, ...additionalMembers],
   };

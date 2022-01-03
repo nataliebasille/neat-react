@@ -6,6 +6,4 @@ export type Population = {
   readonly species: ReadonlyArray<PopulationSpecies>;
 };
 
-export type PopulationSpecies = Species & {
-  readonly staleness: number;
-};
+export type PopulationSpecies = Species;
