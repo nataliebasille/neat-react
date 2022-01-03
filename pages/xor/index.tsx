@@ -1,5 +1,5 @@
 import { NextPage } from "next";
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createPopulation,
   Genome,
@@ -7,7 +7,6 @@ import {
   Population,
 } from "../../src/neat";
 import { evaluate } from "../../src/neat/genome/evaluate";
-import { delay } from "../../src/promises/delay";
 import * as styles from "./index.module.css";
 
 let uuid = 0;
