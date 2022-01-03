@@ -48,7 +48,11 @@ export function nextGeneration(
     0
   );
 
-  const children: Genome[] = [];
+  const children: Genome[] = [
+    ...survivingSpecies
+      .filter((x) => x.surviving.length >= 5)
+      .map((x) => x.surviving[0]),
+  ];
 
   for (const { surviving, totalAdjustedFitness } of survivingSpecies) {
     const numberOfChildren =

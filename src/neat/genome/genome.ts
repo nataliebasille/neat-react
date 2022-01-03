@@ -40,7 +40,7 @@ export function createGenone({
   rng,
   nextInnovationNumber,
   crossoverChange = 0.75,
-  weightMutationChance = 2,
+  weightMutationChance = 0.8,
   weightPerturbationChance = 0.9,
   weightChangeDelta = 0.1,
   connectionAddChance = 2.0,
